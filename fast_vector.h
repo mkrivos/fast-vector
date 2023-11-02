@@ -16,7 +16,7 @@
 
 // Helper functions
 
-template <class T>
+template <typename T>
 inline void construct_range(T* begin, T* end)
 {
     while (begin != end)
@@ -26,7 +26,7 @@ inline void construct_range(T* begin, T* end)
     }
 }
 
-template <class T>
+template <typename T>
 inline void copy_range(const T* begin, const T* end, T* dest)
 {
     while (begin != end)
@@ -37,7 +37,18 @@ inline void copy_range(const T* begin, const T* end, T* dest)
     }
 }
 
-template <class T>
+template <typename T>
+inline void move_range(const T* begin, const T* end, T* dest)
+{
+    while (begin != end)
+    {
+        *dest = std::move(*begin);
+        begin++;
+        dest++;
+    }
+}
+
+template <typename T>
 inline T* find_item(T* begin, T* end, const T& value)
 {
     while (begin != end)
@@ -49,7 +60,7 @@ inline T* find_item(T* begin, T* end, const T& value)
     return end;
 }
 
-template <class T>
+template <typename T>
 inline void destruct_range(T* begin, T* end)
 {
     while (begin != end)
@@ -62,7 +73,7 @@ inline void destruct_range(T* begin, T* end)
 /**
  * The fast & light-weight std::vector replacement, best used for plain POD types.
  */
-template <class T>
+template <typename T, bool F = false, int A = 16>
 class fast_vector
 {
 public:
@@ -70,6 +81,7 @@ public:
     using value_type = T;
 
     fast_vector() = default;
+    fast_vector(size_t size);
     fast_vector(const fast_vector& other);
     fast_vector(std::initializer_list<T>&& other);
     fast_vector(fast_vector&& other) noexcept;
@@ -126,7 +138,7 @@ public:
 
     void pop_back();
     void resize(size_type count);
-    void erase(const T value);
+    bool erase(const T value);
 
     void swap(fast_vector<T>& a, fast_vector<T>& b);
 
@@ -138,22 +150,22 @@ private:
     size_type m_capacity = 0;
 };
 
-template <class T>
-void fast_vector<T>::swap(fast_vector<T>& a, fast_vector<T>& b)
+template <typename T, bool F, int A>
+fast_vector<T,F,A>::fast_vector(size_t size) :
+    m_size(size),
+    m_capacity(size)
 {
-    std::swap(a.m_data, b.m_data);
-    std::swap(a.m_size, b.m_size);
-    std::swap(a.m_capacity, b.m_capacity);
+    m_data = reinterpret_cast<T*>(std::malloc(sizeof(T) * m_capacity));
 }
 
-template <class T>
-fast_vector<T>::fast_vector(std::initializer_list<T>&& other) :
+template <typename T, bool F, int A>
+fast_vector<T,F,A>::fast_vector(std::initializer_list<T>&& other) :
     fast_vector(other.begin(), other.end())
 {
 }
 
-template <class T>
-fast_vector<T>::fast_vector(const T a[], const T b[])
+template <typename T, bool F, int A>
+fast_vector<T,F,A>::fast_vector(const T a[], const T b[])
   : m_size(b - a)
   , m_capacity(b - a)
 {
@@ -169,8 +181,8 @@ fast_vector<T>::fast_vector(const T a[], const T b[])
     }
 }
 
-template <class T>
-fast_vector<T>::fast_vector(const fast_vector& other)
+template <typename T, bool F, int A>
+fast_vector<T,F,A>::fast_vector(const fast_vector& other)
     : m_size(other.m_size)
     , m_capacity(other.m_size)
 {
@@ -186,8 +198,8 @@ fast_vector<T>::fast_vector(const fast_vector& other)
     }
 }
 
-template <class T>
-fast_vector<T>::fast_vector(fast_vector&& other) noexcept
+template <typename T, bool F, int A>
+fast_vector<T,F,A>::fast_vector(fast_vector&& other) noexcept
     : m_data(other.m_data)
     , m_size(other.m_size)
     , m_capacity(other.m_capacity)
@@ -195,8 +207,8 @@ fast_vector<T>::fast_vector(fast_vector&& other) noexcept
     other.m_data = nullptr;
 }
 
-template <class T>
-fast_vector<T>& fast_vector<T>::operator=(const fast_vector& other)
+template <typename T, bool F, int A>
+fast_vector<T,F,A>& fast_vector<T,F,A>::operator=(const fast_vector& other)
 {
     m_size = other.m_size;
     m_capacity = other.m_size;
@@ -215,8 +227,8 @@ fast_vector<T>& fast_vector<T>::operator=(const fast_vector& other)
     return *this;
 }
 
-template <class T>
-fast_vector<T>& fast_vector<T>::operator=(fast_vector&& other) noexcept
+template <typename T, bool F, int A>
+fast_vector<T,F,A>& fast_vector<T,F,A>::operator=(fast_vector&& other) noexcept
 {
     m_data = other.m_data;
     m_size = other.m_size;
@@ -227,8 +239,8 @@ fast_vector<T>& fast_vector<T>::operator=(fast_vector&& other) noexcept
     return *this;
 }
 
-template <class T>
-fast_vector<T>::~fast_vector()
+template <typename T, bool F, int A>
+fast_vector<T,F,A>::~fast_vector()
 {
     if (m_data)
     {
@@ -240,24 +252,32 @@ fast_vector<T>::~fast_vector()
     }
 }
 
+template <typename T, bool F, int A>
+void fast_vector<T,F,A>::swap(fast_vector<T>& a, fast_vector<T>& b)
+{
+    std::swap(a.m_data, b.m_data);
+    std::swap(a.m_size, b.m_size);
+    std::swap(a.m_capacity, b.m_capacity);
+}
+
 // Element access
 
-template <class T>
-T& fast_vector<T>::operator[](size_type pos)
+template <typename T, bool F, int A>
+T& fast_vector<T,F,A>::operator[](size_type pos)
 {
     assert(pos < m_size && "Position is out of range");
     return m_data[pos];
 }
 
-template <class T>
-const T& fast_vector<T>::operator[](size_type pos) const
+template <typename T, bool F, int A>
+const T& fast_vector<T,F,A>::operator[](size_type pos) const
 {
     assert(pos < m_size && "Position is out of range");
     return m_data[pos];
 }
 
-template <class T>
-T& fast_vector<T>::at(size_type pos)
+template <typename T, bool F, int A>
+T& fast_vector<T,F,A>::at(size_type pos)
 {
     if (pos >= m_size)
         throw std::range_error{"Position is out of range"};
@@ -265,8 +285,8 @@ T& fast_vector<T>::at(size_type pos)
     return operator [](pos);
 }
 
-template <class T>
-const T& fast_vector<T>::at(size_type pos) const
+template <typename T, bool F, int A>
+const T& fast_vector<T,F,A>::at(size_type pos) const
 {
     if (pos >= m_size)
         throw std::range_error{"Position is out of range"};
@@ -274,124 +294,125 @@ const T& fast_vector<T>::at(size_type pos) const
     return operator [](pos);
 }
 
-template <class T>
-T& fast_vector<T>::front()
+template <typename T, bool F, int A>
+T& fast_vector<T,F,A>::front()
 {
     assert(m_size > 0 && "Container is empty");
     return m_data[0];
 }
 
-template <class T>
-const T& fast_vector<T>::front() const
+template <typename T, bool F, int A>
+const T& fast_vector<T,F,A>::front() const
 {
     assert(m_size > 0 && "Container is empty");
     return m_data[0];
 }
 
-template <class T>
-T& fast_vector<T>::back()
+template <typename T, bool F, int A>
+T& fast_vector<T,F,A>::back()
 {
     assert(m_size > 0 && "Container is empty");
     return m_data[m_size - 1];
 }
 
-template <class T>
-const T& fast_vector<T>::back() const
+template <typename T, bool F, int A>
+const T& fast_vector<T,F,A>::back() const
 {
     assert(m_size > 0 && "Container is empty");
     return m_data[m_size - 1];
 }
 
-template <class T>
-T* fast_vector<T>::data() noexcept
+template <typename T, bool F, int A>
+T* fast_vector<T,F,A>::data() noexcept
 {
     return m_data;
 }
 
-template <class T>
-const T* fast_vector<T>::data() const noexcept
+template <typename T, bool F, int A>
+const T* fast_vector<T,F,A>::data() const noexcept
 {
     return m_data;
 }
 
 // Iterators
 
-template <class T>
-T* fast_vector<T>::begin() noexcept
+template <typename T, bool F, int A>
+T* fast_vector<T,F,A>::begin() noexcept
 {
     return m_data;
 }
 
-template <class T>
-const T* fast_vector<T>::begin() const noexcept
+template <typename T, bool F, int A>
+const T* fast_vector<T,F,A>::begin() const noexcept
 {
     return m_data;
 }
 
-template <class T>
-T* fast_vector<T>::end() noexcept
+template <typename T, bool F, int A>
+T* fast_vector<T,F,A>::end() noexcept
 {
     return m_data + m_size;
 }
 
-template <class T>
-const T* fast_vector<T>::end() const noexcept
+template <typename T, bool F, int A>
+const T* fast_vector<T,F,A>::end() const noexcept
 {
     return m_data + m_size;
 }
 
 // Capacity
 
-template <class T>
-bool fast_vector<T>::empty() const noexcept
+template <typename T, bool F, int A>
+bool fast_vector<T,F,A>::empty() const noexcept
 {
     return m_size == 0;
 }
 
-template <class T>
-typename fast_vector<T>::size_type fast_vector<T>::size() const noexcept
+template <typename T, bool F, int A>
+typename fast_vector<T,F,A>::size_type fast_vector<T,F,A>::size() const noexcept
 {
     return m_size;
 }
 
-template <class T>
-void fast_vector<T>::reserve(size_type new_cap)
+template <typename T, bool F, int A>
+void fast_vector<T,F,A>::reserve(size_type new_cap)
 {
-    assert(new_cap > m_capacity && "Capacity is already equal to or greater than the passed value");
-
-    if constexpr (std::is_trivial_v<T>)
+    if (new_cap > m_capacity)
     {
-        m_data = reinterpret_cast<T*>(std::realloc(m_data, sizeof(T) * new_cap));
-        assert(m_data != nullptr && "Reallocation failed");
+        if constexpr (std::is_trivial_v<T> | F)
+        {
+            m_data = reinterpret_cast<T*>(std::realloc(m_data, sizeof(T) * new_cap));
+            assert(m_data != nullptr && "Reallocation failed");
+        }
+        else
+        {
+            T* new_data_location = reinterpret_cast<T*>(std::malloc(sizeof(T) * new_cap));
+            assert(new_data_location != nullptr && "Allocation failed");
+
+            copy_range(begin(), end(), new_data_location);
+            destruct_range(begin(), end());
+
+            std::free(m_data);
+
+            m_data = new_data_location;
+        }
+
+        m_capacity = new_cap;
     }
-    else
-    {
-        T* new_data_location = reinterpret_cast<T*>(std::malloc(sizeof(T) * new_cap));
-        assert(new_data_location != nullptr && "Allocation failed");
-
-        copy_range(begin(), end(), new_data_location);
-        destruct_range(begin(), end());
-
-        std::free(m_data);
-
-        m_data = new_data_location;
-    }
-
-    m_capacity = new_cap;
 }
 
-template <class T>
-typename fast_vector<T>::size_type fast_vector<T>::capacity() const noexcept
+template <typename T, bool F, int A>
+typename fast_vector<T,F,A>::size_type fast_vector<T,F,A>::capacity() const noexcept
 {
     return m_capacity;
 }
 
-template <class T>
-void fast_vector<T>::shrink_to_fit()
+template <typename T, bool F, int A>
+void fast_vector<T,F,A>::shrink_to_fit()
 {
     if (m_size && m_size < m_capacity)
     {
-        if constexpr (std::is_trivial_v<T>)
+        if constexpr (std::is_trivial_v<T> | F)
         {
             m_data = reinterpret_cast<T*>(std::realloc(m_data, sizeof(T) * m_size));
             assert(m_data != nullptr && "Reallocation failed");
@@ -413,10 +434,10 @@ void fast_vector<T>::shrink_to_fit()
 
 // Modifiers
 
-template <class T>
-void fast_vector<T>::clear() noexcept
+template <typename T, bool F, int A>
+void fast_vector<T,F,A>::clear() noexcept
 {
-    if constexpr (!std::is_trivial_v<T>)
+    if constexpr (std::is_trivial_v<T>)
     {
         destruct_range(begin(), end());
     }
@@ -424,8 +445,8 @@ void fast_vector<T>::clear() noexcept
     m_size = 0;
 }
 
-template <class T>
-void fast_vector<T>::append(const T values[], size_t count)
+template <typename T, bool F, int A>
+void fast_vector<T,F,A>::append(const T values[], size_t count)
 {
     if (m_size + count >= m_capacity)
     {
@@ -448,35 +469,45 @@ void fast_vector<T>::append(const T values[], size_t count)
     }
 }
 
-template <class T>
-void fast_vector<T>::erase(const T value)
+template <typename T, bool F, int A>
+bool fast_vector<T,F,A>::erase(const T value)
 {
     T* position = find_item(begin(), end(), value);
     if (position < end())
     {
-        if constexpr (!std::is_trivial_v<T>)
+        size_t count = end() - position - 1;
+
+        if constexpr (std::is_trivial_v<T> | F)
         {
             position->~T();
-        }
-
-        if (position < end()-1)
-        {
-            size_t count = end() - position - 1;
-            if constexpr (std::is_trivial_v<T>)
+            if (count > 0)
             {
                 std::memcpy(position, position + 1, count*sizeof(T));
             }
+        }
+        else
+        {
+            if (count > 0)
+            {
+                for (size_t i = 0; i < count; i++)
+                {
+                    *position = std::move(*(position + 1));
+                    ++position;
+                }
+            }
             else
             {
-                copy_range(position, position + 1, count);
+                position->~T();
             }
         }
         --m_size;
+        return true;
     }
+    return false;
 }
 
-template <class T>
-void fast_vector<T>::push_back(const T& value)
+template <typename T, bool F, int A>
+void fast_vector<T,F,A>::push_back(const T& value)
 {
     if (m_size == m_capacity)
     {
@@ -495,8 +526,8 @@ void fast_vector<T>::push_back(const T& value)
     m_size++;
 }
 
-template <class T>
-void fast_vector<T>::push_back(T&& value)
+template <typename T, bool F, int A>
+void fast_vector<T,F,A>::push_back(T&& value)
 {
     if (m_size == m_capacity)
     {
@@ -515,9 +546,9 @@ void fast_vector<T>::push_back(T&& value)
     m_size++;
 }
 
-template <class T>
+template <typename T, bool F, int A>
 template< class... Args >
-void fast_vector<T>::emplace_back(Args&&... args)
+void fast_vector<T,F,A>::emplace_back(Args&&... args)
 {
     static_assert(!std::is_trivial_v<T>, "Use push_back() instead of emplace_back() with trivial types");
 
@@ -531,8 +562,8 @@ void fast_vector<T>::emplace_back(Args&&... args)
     m_size++;
 }
 
-template <class T>
-void fast_vector<T>::pop_back()
+template <typename T, bool F, int A>
+void fast_vector<T,F,A>::pop_back()
 {
     assert(m_size > 0 && "Container is empty");
 
@@ -544,8 +575,8 @@ void fast_vector<T>::pop_back()
     m_size--;
 }
 
-template <class T>
-void fast_vector<T>::resize(size_type count)
+template <typename T, bool F, int A>
+void fast_vector<T,F,A>::resize(size_type count)
 {
     if (count == m_size)
         return;
