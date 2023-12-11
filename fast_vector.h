@@ -140,7 +140,7 @@ public:
     void resize(size_type count);
     bool erase(const T value);
 
-    void swap(fast_vector<T>& a, fast_vector<T>& b);
+    static void swap(fast_vector<T>& a, fast_vector<T>& b);
 
     static constexpr size_type grow_factor = 2;
 
@@ -156,6 +156,11 @@ fast_vector<T,F,A>::fast_vector(size_t size) :
     m_capacity(size)
 {
     m_data = reinterpret_cast<T*>(std::malloc(sizeof(T) * m_capacity));
+
+    if (std::is_trivial_v<T> | F)
+        memset(m_data, 0, sizeof(T) * m_capacity);
+    else
+        construct_range(begin(), end());
 }
 
 template <typename T, bool F, int A>
@@ -210,6 +215,8 @@ fast_vector<T,F,A>::fast_vector(fast_vector&& other) noexcept
 template <typename T, bool F, int A>
 fast_vector<T,F,A>& fast_vector<T,F,A>::operator=(const fast_vector& other)
 {
+    this->~fast_vector<T,F,A>();
+
     m_size = other.m_size;
     m_capacity = other.m_size;
 
@@ -230,6 +237,8 @@ fast_vector<T,F,A>& fast_vector<T,F,A>::operator=(const fast_vector& other)
 template <typename T, bool F, int A>
 fast_vector<T,F,A>& fast_vector<T,F,A>::operator=(fast_vector&& other) noexcept
 {
+    this->~fast_vector<T,F,A>();
+
     m_data = other.m_data;
     m_size = other.m_size;
     m_capacity = other.m_size;
@@ -381,8 +390,11 @@ void fast_vector<T,F,A>::reserve(size_type new_cap)
     {
         if constexpr (std::is_trivial_v<T> | F)
         {
+            auto old_capacity = m_capacity;
             m_data = reinterpret_cast<T*>(std::realloc(m_data, sizeof(T) * new_cap));
             assert(m_data != nullptr && "Reallocation failed");
+            // Reset new range to zero
+            memset(m_data + old_capacity, 0, new_cap-old_capacity);
         }
         else
         {
@@ -437,7 +449,7 @@ void fast_vector<T,F,A>::shrink_to_fit()
 template <typename T, bool F, int A>
 void fast_vector<T,F,A>::clear() noexcept
 {
-    if constexpr (std::is_trivial_v<T>)
+    if constexpr (!(std::is_trivial_v<T> | F))
     {
         destruct_range(begin(), end());
     }

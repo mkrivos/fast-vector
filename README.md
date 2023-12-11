@@ -60,3 +60,8 @@ Most of the time zero initialization is useless, based on that it was removed fr
 It is safe to reallocate memory which contains trivial data. Trivial type constructors and destructors do nothing, so there are no reasons to call them.<br/>
 A growth factor of two is not always suitable for a concrete task, so it was left modifiable.<br/>
 Exceptions are slow and are not used in the perfomance critical enviroment. Assertions, on the other hand, provide no overhead in release builds and are fast enough in debug builds.
+
+
+
+## SAST Tools
+[PVS-Studio](https://pvs-studio.com/pvs-studio/?utm_source=website&utm_medium=github&utm_campaign=open_source) - static analyzer for C, C++, C#, and Java code.
