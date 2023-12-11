@@ -157,6 +157,9 @@ fast_vector<T,F,A>::fast_vector(size_t size) :
 {
     m_data = reinterpret_cast<T*>(std::malloc(sizeof(T) * m_capacity));
 
+    if (!m_data)
+        throw std::bad_alloc{};
+
     if (std::is_trivial_v<T> | F)
         memset(m_data, 0, sizeof(T) * m_capacity);
     else
@@ -176,6 +179,9 @@ fast_vector<T,F,A>::fast_vector(const T a[], const T b[])
 {
     m_data = reinterpret_cast<T*>(std::malloc(sizeof(T) * m_capacity));
 
+    if (!m_data)
+        throw std::bad_alloc{};
+
     if (std::is_trivial_v<T>)
     {
         std::memcpy(m_data, a, sizeof(T) * m_capacity);
@@ -192,6 +198,9 @@ fast_vector<T,F,A>::fast_vector(const fast_vector& other)
     , m_capacity(other.m_size)
 {
     m_data = reinterpret_cast<T*>(std::malloc(sizeof(T) * m_size));
+
+    if (!m_data)
+        throw std::bad_alloc{};
 
     if (std::is_trivial_v<T>)
     {
@@ -221,6 +230,9 @@ fast_vector<T,F,A>& fast_vector<T,F,A>::operator=(const fast_vector& other)
     m_capacity = other.m_size;
 
     m_data = reinterpret_cast<T*>(std::malloc(sizeof(T) * m_size));
+
+    if (!m_data)
+        throw std::bad_alloc{};
 
     if (std::is_trivial_v<T>)
     {
